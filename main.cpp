@@ -6,12 +6,20 @@
 #include <vector>
 #include <Windows.h>
 #include <cwchar>
+#include <cstdlib>
+#include <stdlib.h>
+#include <time.h>
 
 //global variables
 int tempRow;
 int tempColumn;
+bool turnDone = true; // checks if turn is finished
+static bool who = false; // keeps track of who's turn it is(True for detective, false for killer)
+char det, kil;
 bool runGame = true;
-char dead[];
+std::vector <char> dead;//array to keep track of dead.
+std::vector <char> inno = { 'a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y' };
+std::vector <char> hand; //hand for the detective
 char board[5][5] = 
 {
 {'a','b','c','d','e'},
@@ -22,9 +30,9 @@ char board[5][5] =
 };
 
 //checks to see if char is in string
-bool contain(std::string list, char letter)
+bool contain(std::vector<char> list, char letter)
 {
-	for (int i = 0; i < list.length(); i++)
+	for (int i = 0; i < list.size(); i++)
 	{
 		if (list[i] == letter)
 		{
@@ -67,7 +75,7 @@ void findPos(char character)
 }
 
 //shifts a column upwards
-void shift_up(int column)
+bool shift_up(int column)
 {
 	char temp = board[0][column];
 	
@@ -76,10 +84,11 @@ void shift_up(int column)
 		board[i][column] = board[i+1][column];
 	}
 	board[4][column] = temp;
+	return true;
 }
 
-//shifts a column downwards
-void shift_down(int column)
+//shifts a column downwards, returns true if succeeds so that the turn can change
+bool shift_down(int column)
 {
 	char temp = board[4][column];
 
@@ -88,10 +97,11 @@ void shift_down(int column)
 		board[i][column] = board[i - 1][column];
 	}
 	board[0][column] = temp;
+	return true;
 }
 
 //shifts a row left
-void shift_left(int row)
+bool shift_left(int row)
 {
 	char temp = board[row][0];
 
@@ -100,10 +110,11 @@ void shift_left(int row)
 		board[row][i] = board[row][i+1];
 	}
 	board[row][4] = temp;
+	return true;
 }
 
 //shifts a row right
-void shift_right(int row)
+bool shift_right(int row)
 {
 	char temp = board[row][4];
 
@@ -112,6 +123,7 @@ void shift_right(int row)
 		board[row][i] = board[row][i - 1];
 	}
 	board[row][0] = temp;
+	return true;
 }
 
 //draws board in console
@@ -157,7 +169,7 @@ bool isAdj(char char1, char char2)
 //accuses a player, if returns true, then it succeeded and play should pass to the other player
 bool accuse(char accused, char killer, char detective)
 {
-	if (isAdj(detective, accused))
+	if (isAdj(detective, accused) && !contain(dead, accused))
 	{
 		std::cout << accused << " was accused!!!\n";
 		if (accused == killer)
@@ -174,14 +186,118 @@ bool accuse(char accused, char killer, char detective)
 	}
 	else
 	{
-		std::cout << "You cannot accuse " << accused << ", they are not adjacent to you\n";
+		std::cout << "You cannot accuse " << accused;
 		return false;
 	}
 }
 
+//kills player, similar to accuse
+bool kill(char killed, char killer, char detective)
+{
+	if (isAdj(killer, killed) && killer != killed && !contain(dead, killed))
+	{
+		std::cout << killed << " was killed!!!\n";
+		dead.push_back(killed);//adds dead person to array
+		if (killed == detective)
+		{
+			std::cout << "The detective has been killed!!! the killer wins!!!\n";
+			GameEnd(detective, killer);
+		}
+		
+		return true;
+	}
+	else
+	{
+		std::cout << "You cannot kill " << killed;
+		return false;
+	}
+}
+//alternate kill function for first turn only, cannot kill detective
+bool kill(char killed, char killer)
+{
+	if (isAdj(killer, killed) && killer != killed && !contain(dead, killed))
+	{
+		std::cout << killed << " was killed!!!\n";
+		dead.push_back(killed);//adds dead person to array
+		return true;
+	}
+	else
+	{
+		std::cout << "You cannot kill " << killed;
+		return false;
+	}
+}
+
+bool disguise(char killer)
+{
+	if (inno.size() == 0)
+	{
+		return false;
+	}
+	int r;
+	srand(time(NULL));
+	r = rand() % inno.size();
+	char newchar = inno[r];
+	
+	//check if dead
+	if (contain(dead, newchar))
+	{
+		std::cout << "disquise failed! drew : " << newchar;
+	}
+	else
+	{
+		inno.erase(inno.begin() + r);
+		kil = newchar;
+		std::cout << "new character : " << kil;
+	}
+	return true;
+}
+
+bool exxonerate()
+{
+	if (inno.size() == 0)
+	{
+		return false;
+	}
+	char in[] = "                                   ";
+	int r;
+	srand(time(NULL));
+	r = rand() % inno.size();
+	char newchar = inno[r];
+	inno.erase(inno.begin() + r);
+	hand.push_back(newchar);
+	std::cout << "\n choose one of the characters to exonerate :" << hand[0] << " , " << hand[1] << " , " << hand[2] << " , " << hand[3];
+
+	bool idk = false;
+	while (!idk)
+	{
+		//std::cout << in;
+		std::cin >> in;
+		for (int i = 0; i < 4; i++)
+		{
+			if (in[0] == hand[i])
+			{
+				if (isAdj(in[0], kil))
+				{
+					//TODO  make blue
+					std::cout << "yes! they are adjacent!";
+				}
+				else
+				{
+					std::cout << "is not adjacent to killer";
+				}
 
 
-static bool who = true;
+				idk = true;
+				hand.erase(hand.begin() + i);
+				break;
+			}
+		}
+	}
+	return true;
+}
+
+//changes turn upon action success.
 void changeTurn()
 {
 	//true if detectives turn, false if killer's turn
@@ -190,20 +306,180 @@ void changeTurn()
 	std::cout.flush();
 	COORD coords = { 0,0 };
 	SetConsoleCursorPosition(han, coords);
+	if (turnDone)
+	{
 
-	if (who)
-	{
-		who = false;
-		std::cout << "it is the Killer's Turn\n";
-	}
-	
-	else
-	{
-		who = true;
-		std::cout << "it is the Detective's Turn\n";
+		if (who)
+		{
+			who = false;
+			std::cout << "it is the Killer's Turn        \n";
+		}
+
+		else
+		{
+			who = true;
+			std::cout << "it is the Detective's Turn      \n";
+		}
+		turnDone = false;
 	}
 }
 
+//all actions the detective can do
+void DetectTurn(char inp[])
+{
+	if (inp[1] >= 49 && inp[1] <= 53)
+	{
+		if (inp[0] == 'd')
+		{
+
+			turnDone = shift_down(inp[1] - 49);
+
+		}
+		else if (inp[0] == 'u')
+		{
+
+			turnDone = shift_up(inp[1] - 49);
+
+		}
+		else if (inp[0] == 'l')
+		{
+
+			turnDone = shift_left(inp[1] - 49);
+
+		}
+		if (inp[0] == 'r')
+		{
+
+			turnDone = shift_right(inp[1] - 49);
+		}
+
+	}
+	else if (inp[0] == 'a')
+	{
+		turnDone = accuse(inp[1], kil, det);
+	}
+	else if (inp[0] == 'e')
+	{
+		turnDone = exxonerate();
+	}
+}
+//all actions for the killer
+void killTurn(char inp[])
+{
+	if (inp[1] >= 49 && inp[1] <= 53)
+	{
+		if (inp[0] == 'd')
+		{
+
+			turnDone = shift_down(inp[1] - 49);
+
+		}
+		else if (inp[0] == 'u')
+		{
+
+			turnDone = shift_up(inp[1] - 49);
+
+		}
+		else if (inp[0] == 'l')
+		{
+
+			turnDone = shift_left(inp[1] - 49);
+
+		}
+		if (inp[0] == 'r')
+		{
+
+			turnDone = shift_right(inp[1] - 49);
+		}
+
+	}
+	else if (inp[0] == 'k')
+	{
+		turnDone = kill(inp[1], kil, det);
+	}
+	else if (inp[0] == 'h')
+	{
+		turnDone = disguise(kil);
+	}
+}
+
+
+
+
+void detREROLL(int &r1, int &r2, int &r3, int &r4)
+{
+	r1 = rand() % 23;
+	r2 = rand() % 23;
+	r3 = rand() % 23;
+	r4 = rand() % 23;
+}
+void startGame()
+{
+	//assign role for killer
+	srand (time(NULL));
+	int r = rand() % 24;
+	kil = inno[r];
+	inno.erase(inno.begin() + r);
+	
+	//killers first kill
+	std::cout << kil << "  Killer! make your first kill!";
+	
+	static char in[] = "";
+	while (true)
+	{
+		draw();
+		std::cin >> in;
+		if (in[0] == 'k')
+		{
+			turnDone = kill(in[1], kil);
+			if (turnDone)
+			{
+				break;
+			}
+		}
+		std::cin.clear();
+		std::cin.ignore(1000, '\n');
+		std::cout << " \nInvalid move, first move must be a kill\n";
+
+	}
+	who = false;
+
+	//detectives first turn...
+
+	//get choice of character
+	int r1[4];
+	srand(time(NULL));
+	for (int j = 0; j < 4; j++)
+	{
+		r1[j] = rand() % inno.size() - 1;
+		hand.push_back(inno[r1[j]]);
+		inno.erase(inno.begin() + r1[j]);
+	}
+	//get rid of those cards in inno deck
+	
+	//choose role
+	std::cout << "\n you can choose between the following characters :" << hand[0] << " , " << hand[1] << " , " << hand[2] << " , " << hand[3];
+	
+	bool idk = false;
+	while (!idk)
+	{
+		//std::cout << in;
+		std::cin >> in;
+		for (int i = 0; i < 4; i++)
+		{
+			if (in[0] == hand[i])
+			{
+				det = hand[i];
+				idk = true;
+				hand.erase(hand.begin() + i);
+				break;
+			}
+		}
+	}
+	std::cout << "your role : " << det;
+
+}
+//remember to add check to make sure detective doesn't choose a dead person adn become immortal
 
 
 
@@ -219,10 +495,9 @@ int main()
 
 
 	char inp[] = "d2";
-
-	//test identities
-	char det('a'), kil('d');
 	
+	startGame();
+	//system("pause");
 	while (runGame)
 	{
 		//draws board
@@ -231,46 +506,19 @@ int main()
 		//get input
 		std::cin >> inp;
 		
-
-		if (inp[1] >= 49 && inp[1] <= 53)
+		//turn actions
+		
+		
+		if (who)
 		{
-			if (inp[0] == 'd')
-			{
-
-				shift_down(inp[1] - 49);
-
-			}
-			else if (inp[0] == 'u')
-			{
-
-				shift_up(inp[1] - 49);
-
-			}
-			else if (inp[0] == 'l')
-			{
-
-				shift_left(inp[1] - 49);
-
-			}
-			if (inp[0] == 'r')
-			{
-
-				shift_right(inp[1] - 49);
-			}
-			
+			DetectTurn(inp);
 		}
-		else if (inp[0] == 'a' && who == true)
-		{
-			accuse(inp[1], kil, det);
-		}
-		else if (inp[0] == 'k' && who == false)
-		{
-			//accuse(inp[1], kil, det);
+		else if (!who) {
+			killTurn(inp);
 		}
 		
 
 		
-		//system("pause");
 		std::cin.clear();
 		std::cin.ignore(1000, '\n');
 	}
